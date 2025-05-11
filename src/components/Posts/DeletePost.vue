@@ -1,7 +1,7 @@
 <template>
     <!-- Delete Post Modal -->
     <div v-if="showDeletePostModal" class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md bg-opacity-50 z-50">
-      <div class="bg-white rounded-lg w-11/12 md:w-3/4 lg:w-1/2 p-6">
+      <div class="bg-white rounded-lg w-11/12 md:w-3/4 lg:w-[500px] p-6">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-gray-800">Confirm Delete</h3>
           <button @click="$emit('close')" class="text-gray-600 hover:text-gray-800">

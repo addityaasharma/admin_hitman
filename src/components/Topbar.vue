@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full shadow-md shadow-black/20">
+  <div class="w-full shadow-md shadow-black/20 z-0">
     <div class="w-full h-[72px] sticky top-0 bg-white flex justify-between items-center p-8">
       <div>
         <input type="search" placeholder="Search"
@@ -36,7 +36,7 @@
 
         <!-- Dropdown Menu -->
         <div v-if="isDropdownOpen" class="absolute right-0 mt-2 w-[150px] bg-white border rounded-md shadow-md z-50">
-          <button @click="logout" class="flex items-center w-full px-4 py-2 text-left hover:bg-gray-100">
+          <button @click="logout" class="flex items-center w-full px-4 py-2 text-left hover:bg-gray-100 hover:rounded-md">
             <!-- Logout Icon -->
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-red-500" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">

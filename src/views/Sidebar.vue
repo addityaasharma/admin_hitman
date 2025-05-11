@@ -1,8 +1,13 @@
 <template>
     <div class="w-full min-h-screen bg-[#1f2937] text-white flex flex-col shadow-lg">
         <!-- Logo -->
-        <div class="flex justify-center items-center h-18 border-b border-gray-700">
-            <h1 class="text-2xl font-bold tracking-wide">📝 Logo</h1>
+        <div class="flex justify-center items-center h-26 border-b border-gray-700 relative">
+            <img :src="oldImage" alt="logo" class="h-[70px] w-[70px] border-2 rounded-full" />
+
+            <button @click="triggerUpload"
+                class="absolute mt-12 ml-12 h-[25px] w-[25px] border rounded-full bg-black">✎</button>
+
+            <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleImageChange" />
         </div>
 
         <!-- Action Buttons -->
@@ -14,12 +19,17 @@
             </button>
 
             <!-- Modals -->
-            <AddCategoryModal v-if="showModal" :is-open="showModal" @close="showModal = false" @submit="saveCategory" />
-            <EditCategoryModal v-if="showEditModal" :is-open="showEditModal"
-                :initial-name="categories[selectedCategoryIndex]?.name" @close="showEditModal = false"
-                @submit="updateCategory" />
+            <AddCategoryModal v-if="showModal" :is-open="showModal" @close="showModal = false"
+                @category-added="saveCategory" />
+
+            <EditCategoryModal v-if="showEditModal" :is-open="showEditModal" :initial-name="categoryToEdit?.name"
+                :initial-image="categoryToEdit?.image" :category-id="categoryToEdit?._id" @close="showEditModal = false"
+                @category-updated="handleCategoryUpdated" />
+
             <DeleteModal v-if="showDeleteModal" :is-open="showDeleteModal" :category-name="categoryToDelete?.name"
-                @close="showDeleteModal = false" @confirm="deleteCategory" />
+                :loading="isDeleting" @close="showDeleteModal = false" @confirm="deleteCategory" />
+
+
 
             <button @click="onShowBanners"
                 class="w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition">
@@ -27,7 +37,7 @@
                 Show Banners
             </button>
 
-            <button @click="onShowPosts"
+            <button @click="resetCategoryFilter"
                 class="w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-indigo-400 hover:bg-indigo-500 transition">
                 <ListIcon class="w-5 h-5" />
                 All Posts
@@ -35,13 +45,15 @@
         </div>
 
         <!-- Category List -->
-        <div class="h-[400px] flex-1 overflow-auto px-4 py-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-600">
+        <div class="h-[400px] flex-1 overflow-auto px-4 py-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-600 border-">
             <h3 class="text-gray-400 text-sm font-semibold">Categories</h3>
 
-            <ul v-if="categoryList.length" class="space-y-1">
-                <template v-for="(cat, index) in categoryList" :key="index">
-                    <li
-                        class="p-3 mb-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-all group flex justify-between items-center cursor-pointer">
+            <ul v-if="categoryList.length" class="space-y-1 overflow-auto h-[400px] scrollbar-thin">
+                <template v-for="(cat, index) in categoryList" :key="cat._id || index">
+                    <li :class="[
+                        'p-3 mb-2 rounded-lg transition-all group flex justify-between items-center cursor-pointer',
+                        selectedCategory === cat._id ? 'bg-indigo-700 hover:bg-indigo-600' : 'bg-gray-800 hover:bg-gray-700'
+                    ]" @click="selectCategory(cat._id)">
                         <div class="flex items-center gap-3">
                             <img :src="cat.image" alt="logo" class="w-8 h-8 rounded-full object-cover" />
                             <span class="text-white font-medium">{{ cat.name }}</span>
@@ -76,29 +88,94 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { PlusIcon, ImageIcon, ListIcon } from 'lucide-vue-next'
 import AddCategoryModal from '@/components/categoryModals.vue/AddCategoryModal.vue'
 import EditCategoryModal from '@/components/categoryModals.vue/EditCategory.vue'
 import DeleteModal from '@/components/categoryModals.vue/DeleteCategory.vue'
 import router from '@/router'
 import { useCategoryStore } from '@/stores/Categories'
 import { storeToRefs } from 'pinia'
+import axios from 'axios'
 
-// State
 const showEditModal = ref(false)
 const showModal = ref(false)
 const showDeleteModal = ref(false)
-const selectedCategoryIndex = ref(null)
-const categoryToDelete = ref(null)
 const dropdownIndex = ref(null)
-
-// Store
+const categoryToDelete = ref(null)
+const categoryToEdit = ref(null)
+const selectedCategory = ref(null)
+const isDeleting = ref(false)
 const categoryStore = useCategoryStore()
 const { categories } = storeToRefs(categoryStore)
 const { fetchCategories } = categoryStore
 const categoryList = computed(() => categories.value)
+const previewImage = ref('default-image.jpg')
+const fileInput = ref(null)
 
-// Methods
+const triggerUpload = () => {
+  fileInput.value.click()
+}
+
+const oldImage = ref();
+
+const fetchlogo = async(req,res)=>{
+    try{
+        const response = await axios.get('https://backend-5gsq.onrender.com/api/logo',
+        {
+            headers : {
+                Authorization : `Bearer ${localStorage.getItem('token')}`
+            }
+        }
+    )
+    oldImage.value = response.data.image
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+onMounted(async()=>{
+    await fetchlogo()
+})
+
+const handleImageChange = async (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    previewImage.value = URL.createObjectURL(file)
+
+    const formData = new FormData()
+    formData.append('logo', file)
+
+    try {
+      const response = await axios.put('https://backend-5gsq.onrender.com/api/logo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+
+      const uploadedImage = response.data.logo[0]?.image
+      if (uploadedImage) {
+        previewImage.value = uploadedImage;
+      }
+    } catch (error) {
+      console.error('Upload failed:', error)
+    }
+  }
+}
+
+
+const selectCategory = (categoryId) => {
+    selectedCategory.value = categoryId
+    router.push({
+        path: '/posts',
+        query: { category: categoryId }
+    })
+}
+
+const resetCategoryFilter = () => {
+    selectedCategory.value = null
+    router.push({ path: '/posts', query: {} })
+}
+
 const onAddCategory = () => {
     showModal.value = true
 }
@@ -109,19 +186,17 @@ const saveCategory = (categoryData) => {
 }
 
 const editCategory = (index) => {
-    selectedCategoryIndex.value = index
+    categoryToEdit.value = { ...categories.value[index] }
     showEditModal.value = true
     dropdownIndex.value = null
 }
 
-const updateCategory = (updatedData) => {
-    if (selectedCategoryIndex.value !== null) {
-        categories.value[selectedCategoryIndex.value] = {
-            ...categories.value[selectedCategoryIndex.value],
-            ...updatedData,
-        }
-        showEditModal.value = false
+const handleCategoryUpdated = (updatedCategory) => {
+    const index = categories.value.findIndex(c => c._id === updatedCategory._id)
+    if (index !== -1) {
+        categories.value[index] = updatedCategory
     }
+    showEditModal.value = false
 }
 
 const toggleDropdown = (index) => {
@@ -133,12 +208,31 @@ const openDeleteModal = (index) => {
     showDeleteModal.value = true
 }
 
-const deleteCategory = () => {
-    const index = categories.value.findIndex((c) => c === categoryToDelete.value)
-    if (index !== -1) {
-        categories.value.splice(index, 1)
+const deleteCategory = async () => {
+    if (!categoryToDelete.value?._id) return
+
+    try {
+        isDeleting.value = true
+        await axios.delete(`https://backend-5gsq.onrender.com/api/categories/category/${categoryToDelete.value._id}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+        await categoryStore.fetchCategories();
+        const index = categories.value.findIndex(c => c._id === categoryToDelete.value._id)
+        if (index !== -1) {
+            categories.value.splice(index, 1)
+        }
+
+        if (selectedCategory.value === categoryToDelete.value._id) {
+            resetCategoryFilter()
+        }
+    } catch (error) {
+        console.error('Error deleting category:', error)
+    } finally {
+        showDeleteModal.value = false
+        isDeleting.value = false
     }
-    showDeleteModal.value = false
 }
 
 const handleClickOutside = (e) => {
@@ -160,10 +254,6 @@ onBeforeUnmount(() => {
 
 const onShowBanners = () => {
     router.push('/banner')
-}
-
-const onShowPosts = () => {
-    router.push('/posts')
 }
 </script>
 

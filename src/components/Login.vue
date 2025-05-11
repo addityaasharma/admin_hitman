@@ -15,26 +15,30 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700">Username</label>
-          <input v-model="form.email" type="text" placeholder="aditya123"
+          <input v-model="form.email" type="text" placeholder="xtention"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
             required />
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700">Password</label>
-          <input v-model="form.password" type="password" placeholder="••••••••"
+          <input v-model="form.password" type="password" placeholder="1234"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
             required />
         </div>
 
-        <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">
-          {{ isLogin ? 'Login' : 'Sign Up' }}
+        <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center" :disabled="isLoading">
+          <svg v-if="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {{ isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up') }}
         </button>
       </form>
 
       <p class="text-center text-sm mt-6 text-gray-600">
         {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
-        <button @click="toggleForm" class="text-indigo-600 hover:underline ml-1">
+        <button @click="toggleForm" class="text-indigo-600 hover:underline ml-1" :disabled="isLoading">
           {{ isLogin ? 'Sign up' : 'Login' }}
         </button>
       </p>
@@ -48,6 +52,7 @@ import axios from 'axios'
 import { reactive, ref } from 'vue'
 
 const isLogin = ref(true)
+const isLoading = ref(false)
 const form = reactive({
   name: '',
   email: '',
@@ -55,6 +60,8 @@ const form = reactive({
 })
 
 const toggleForm = () => {
+  if (isLoading.value) return
+  
   isLogin.value = !isLogin.value
   form.name = ''
   form.email = ''
@@ -62,6 +69,10 @@ const toggleForm = () => {
 }
 
 const handleSubmit = async () => {
+  if (isLoading.value) return
+  
+  isLoading.value = true
+  
   try {
     if (isLogin.value) {
       const loginResponse = await axios.post(
@@ -91,12 +102,13 @@ const handleSubmit = async () => {
         }));
 
         console.log('Login successful!');
-        router.push('/');
+        router.push('/welcome');
       }
 
     } else {
       if (!form.email || !form.password || !form.name) {
         alert('Please fill all fields');
+        isLoading.value = false;
         return;
       }
 
@@ -139,11 +151,12 @@ const handleSubmit = async () => {
       }));
 
       console.log('Signup & login successful!');
-      router.push('/');
+      router.push('/welcome');
     }
   } catch (error) {
     console.error('Something went wrong:', error);
     alert('An error occurred. Please try again.');
+    isLoading.value = false;
   }
 };
 </script>

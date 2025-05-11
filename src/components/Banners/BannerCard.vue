@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-lg w-full bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+  <div class="max-w-lg w-full h-[175px] bg-white rounded-xl shadow-lg overflow-hidden border border-indigo-600/30 hover:border-indigo-900">
     <div class="flex flex-col md:flex-row">
       <!-- Banner Image -->
       <img :src="banner.image" alt="Banner Image" class="w-full md:w-1/3 h-44 object-cover" />
@@ -17,28 +17,16 @@
             class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-md">
             Edit
           </button>
-          <button @click="showDeleteModal = true"
-            class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md">
+          <button @click="showDeleteModal = true" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md">
             Delete
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Edit Modal -->
-    <EditBannerModal
-      v-if="showEditModal"
-      :banner="banner"
-      @close="showEditModal = false"
-      @submit="handleUpdate"
-    />
+    <EditBannerModal v-if="showEditModal" :banner="banner" @close="showEditModal = false" @submit="handleUpdate" />
 
-    <!-- Delete Modal -->
-    <DeleteBannerModal
-      v-if="showDeleteModal"
-      @close="showDeleteModal = false"
-      @confirm="handleDelete"
-    />
+    <DeleteBannerModal v-if="showDeleteModal" @close="showDeleteModal = false" @confirm="handleDelete" />
   </div>
 </template>
 
@@ -60,12 +48,12 @@ const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 
 const handleUpdate = (updatedData) => {
-  emit("edit", { id: props.banner.id, ...updatedData });
+  emit("edit", { id: props.banner._id, ...updatedData });
   showEditModal.value = false;
 };
 
 const handleDelete = () => {
-  emit("delete", props.banner.id);
+  emit("delete", props.banner._id);
   showDeleteModal.value = false;
 };
 </script>

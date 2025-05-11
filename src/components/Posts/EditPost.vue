@@ -2,7 +2,7 @@
     <div>
         <!-- Modal -->
         <div v-if="showEditPostModal"
-            class="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50 overflow-auto">
+            class="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center overflow-auto">
             <div
                 class="bg-white p-6 sm:p-8 rounded-xl w-full max-w-lg max-h-[90vh] text-gray-800 relative overflow-y-auto shadow-lg">
                 <h3 class="text-2xl font-semibold text-center mb-4">
@@ -87,6 +87,7 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import axios from 'axios';
 import { useCategoryStore } from '@/stores/Categories';
 import { storeToRefs } from 'pinia';
+import { usePostStore } from '@/stores/PostStore';
 
 const props = defineProps({
     showEditPostModal: Boolean,
@@ -97,7 +98,7 @@ const emit = defineEmits(['close', 'update']);
 
 const formData = ref({
     title: '',
-    image: null, // ✅ initialize image as null
+    image: null,
     content: '',
     category: ''
 });
@@ -106,6 +107,10 @@ const isUploadingImage = ref(false);
 const isLoading = ref(false);
 const searchQuery = ref('');
 const showCategoryList = ref(false);
+
+const postStore = usePostStore();
+const { allPosts } = storeToRefs(postStore);
+const { fetchPost } = postStore;
 
 const categoryStore = useCategoryStore();
 const { categories } = storeToRefs(categoryStore);
@@ -192,29 +197,29 @@ const saveContent = async () => {
     try {
         const token = localStorage.getItem('token');
 
-        const payload = {
-            title: formData.value.title,
-            image: formData.value.image,
-            content: formData.value.content,
-            category: formData.value.category
-        };
+        const form = new FormData();
+        form.append('title', formData.value.title);
+        form.append('content', formData.value.content);
+        form.append('category', formData.value.category);
+
+        if (formData.value.image instanceof File) {
+            form.append('image', formData.value.image);
+        }
 
         const response = await axios.put(
             `https://backend-5gsq.onrender.com/api/news/editnews/${formData.value._id}`,
-            payload,
+            form,
             {
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'multipart/form-data',
                 }
             }
         );
-
+        await postStore.fetchPost()
         emit('update', response.data);
         emit('close');
-        alert('Post updated successfully!');
     } catch (error) {
-        console.error(error);
         alert('Failed to update post. Please try again.');
     } finally {
         isLoading.value = false;
@@ -224,4 +229,5 @@ const saveContent = async () => {
 const cancelEdit = () => {
     emit('close');
 };
+
 </script>

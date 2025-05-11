@@ -17,7 +17,6 @@ export const usePostStore = defineStore('Posts', () => {
 
       allPosts.value = response.data || { message: '', newsArticles: [] }
 
-      console.log('First article title:', allPosts.value.newsArticles[0]?.title)
     } catch (error) {
       console.error('Error fetching posts:', error)
     }

@@ -6,7 +6,7 @@
             <div
                 class="bg-white p-6 sm:p-8 rounded-xl w-full max-w-lg max-h-[90vh] text-gray-800 relative overflow-y-auto shadow-lg">
                 <h3 class="text-2xl font-semibold text-center mb-4">{{ editingIndex !== null ? "Edit Post" : "Add Post"
-                    }}</h3>
+                }}</h3>
 
                 <!-- Title -->
                 <div class="mb-4">
@@ -42,19 +42,27 @@
 
                 <!-- Category -->
                 <div class="mb-4">
-                    <label class="block text-lg font-medium mb-2">Select Category</label>
+                    <label class="block text-lg font-medium mb-2">Select Category <span
+                            class="text-red-500">*</span></label>
                     <div class="relative">
                         <input v-model="searchQuery" @focus="showCategoryList = true" @blur="hideCategoryList"
                             placeholder="Search categories..."
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600" />
-                        <ul v-if="showCategoryList"
+                        <ul v-if="showCategoryList && filteredCategories.length > 0"
                             class="absolute bg-white border w-full mt-1 z-10 rounded max-h-40 overflow-y-auto shadow-lg">
                             <li v-for="(cat, index) in filteredCategories" :key="index"
                                 @mousedown.prevent="selectCategory(cat)"
                                 class="px-4 py-2 hover:bg-indigo-100 cursor-pointer">
-                                {{ cat }}
+                                {{ cat.name }}
                             </li>
                         </ul>
+                        <div v-if="showCategoryList && filteredCategories.length === 0"
+                            class="absolute bg-white border w-full mt-1 z-10 rounded p-2 shadow-lg text-center text-gray-500">
+                            No categories found
+                        </div>
+                    </div>
+                    <div v-if="form.category" class="mt-2 text-sm text-gray-600">
+                        Selected: {{ getCategoryName() }}
                     </div>
                 </div>
 
@@ -74,15 +82,24 @@
                         Saving...
                     </button>
                 </div>
+
+                <!-- Error Message -->
+                <div v-if="errorMessage" class="mt-4 text-red-500 text-center">
+                    {{ errorMessage }}
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { useCategoryStore } from '@/stores/Categories'
+import { storeToRefs } from 'pinia'
+import { usePostStore } from '@/stores/PostStore'
+import axios from 'axios'
 
 const props = defineProps({
     showAddPostModal: {
@@ -91,7 +108,11 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['close'])
+const postStore = usePostStore();
+const { allPosts } = storeToRefs(postStore);
+const { fetchPost } = postStore;
+
+const emit = defineEmits(['close', 'post-saved'])
 
 const editorOptions = {
     modules: {
@@ -120,7 +141,7 @@ const form = ref({
     title: '',
     image: null,
     content: '',
-    category: ''
+    category: null
 })
 
 const searchQuery = ref('')
@@ -128,22 +149,36 @@ const showCategoryList = ref(false)
 const isUploadingImage = ref(false)
 const isLoading = ref(false)
 const editingIndex = ref(null)
-const categories = ref([
-    'Technology',
-    'Business',
-    'Lifestyle',
-    'Travel',
-    'Education',
-    'Finance',
-    'Science',
-    'Health'
-])
+const errorMessage = ref('')
+
+const categoryStore = useCategoryStore();
+const { categories } = storeToRefs(categoryStore);
+const { fetchCategories } = categoryStore;
+
+onMounted(async () => {
+    try {
+        await fetchCategories()
+    } catch (error) {
+        errorMessage.value = 'Failed to load categories. Please refresh the page.'
+    }
+})
+
+watch(() => props.showAddPostModal, (newVal) => {
+    if (!newVal) {
+        searchQuery.value = ''
+        showCategoryList.value = false
+    }
+})
 
 const filteredCategories = computed(() => {
-    return categories.value.filter(cat =>
-        cat.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-})
+    if (!searchQuery.value) return categories.value || [];
+    return (categories.value || []).filter(cat => {
+        if (cat && cat.name) {
+            return cat.name.toLowerCase().includes(searchQuery.value.toLowerCase());
+        }
+        return false;
+    });
+});
 
 const handleImage = event => {
     const file = event.target.files[0]
@@ -158,25 +193,83 @@ const handleImage = event => {
 
 const selectCategory = category => {
     form.value.category = category
-    searchQuery.value = category
+    searchQuery.value = category.name
     showCategoryList.value = false
+}
+
+const getCategoryName = () => {
+    const cat = form.value.category
+    if (!cat) return ''
+    if (typeof cat === 'string') return cat
+    return cat.name || ''
 }
 
 const hideCategoryList = () => {
     setTimeout(() => (showCategoryList.value = false), 100)
 }
 
-const saveContent = () => {
-    if (!form.value.title || !form.value.content || !form.value.category) {
-        alert('Please fill all fields')
+const validateForm = () => {
+    if (!form.value.title.trim()) {
+        errorMessage.value = 'Please enter a title'
+        return false
+    }
+
+    if (!form.value.content.trim()) {
+        errorMessage.value = 'Please enter content'
+        return false
+    }
+
+    if (!form.value.category) {
+        errorMessage.value = 'Please select a category'
+        return false
+    }
+
+    return true
+}
+
+const saveContent = async () => {
+    // Reset error message
+    errorMessage.value = ''
+
+    // Validate form
+    if (!validateForm()) {
         return
     }
+
     isLoading.value = true
-    setTimeout(() => {
-        isLoading.value = false
+
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Authentication token not found')
+        }
+
+        const formData = new FormData()
+        formData.append('title', form.value.title)
+        formData.append('content', form.value.content)
+        formData.append('category', form.value.category.name)
+        formData.append('image', form.value.image)
+
+        const response = await axios.post(
+            'https://backend-5gsq.onrender.com/api/news',
+            formData,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            }
+
+        );
+        await postStore.fetchPost();
+        emit('post-saved', response.data)
         closeModal()
-        alert('Post saved successfully!')
-    }, 2000)
+
+    } catch (error) {
+        errorMessage.value = error.response?.data?.message || 'Failed to save post. Please try again.'
+    } finally {
+        isLoading.value = false
+    }
 }
 
 const cancelEdit = () => {
@@ -188,9 +281,11 @@ const closeModal = () => {
         title: '',
         image: null,
         content: '',
-        category: ''
+        category: null
     }
+    searchQuery.value = ''
     editingIndex.value = null
+    errorMessage.value = ''
     emit('close')
 }
 </script>

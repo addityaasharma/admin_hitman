@@ -18,10 +18,16 @@
 
             <!-- Action Buttons -->
             <div class="flex justify-center gap-4">
-                <button @click="confirmDelete"
-                    class="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 transition">
-                    Delete
+                <button @click="confirmDelete" :disabled="loading"
+                    class="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 transition flex items-center justify-center">
+                    <svg v-if="loading" class="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    <span>{{ loading ? 'Deleting...' : 'Delete' }}</span>
                 </button>
+
                 <button @click="closeModal"
                     class="bg-gray-300 text-black py-2 px-6 rounded-md hover:bg-gray-400 transition">
                     Cancel
@@ -37,6 +43,7 @@ import { ref } from 'vue'
 const props = defineProps({
     isOpen: Boolean,
     categoryName: String,
+    loading : Boolean
 })
 
 const emits = defineEmits(['close', 'confirm'])
@@ -46,7 +53,7 @@ const closeModal = () => {
 }
 
 const confirmDelete = () => {
-    emits('confirm') // Emit the confirm event to handle actual deletion
-    closeModal() // Close modal after confirmation
+    emits('confirm') 
 }
+
 </script>

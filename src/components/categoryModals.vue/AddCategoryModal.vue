@@ -40,8 +40,16 @@
 
                 <!-- Submit Button -->
                 <button type="submit"
-                    class="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition">
-                    Add Category
+                    class="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition flex items-center justify-center"
+                    :disabled="isSubmitting">
+                    <svg v-if="isSubmitting" class="animate-spin h-5 w-5 text-white mr-2"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z">
+                        </path>
+                    </svg>
+                    <span>{{ isSubmitting ? 'Adding...' : 'Add Category' }}</span>
                 </button>
             </form>
         </div>
@@ -49,13 +57,20 @@
 </template>
 
 <script setup>
+import { useCategoryStore } from '@/stores/Categories'
+import axios from 'axios'
 import { ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 
 const props = defineProps({
     isOpen: Boolean,
 })
-const emits = defineEmits(['close', 'submit'])
 
+const isSubmitting = ref(false)
+const emits = defineEmits(['close', 'submit'])
+const categoryStore = useCategoryStore();
+const { categories } = storeToRefs(categoryStore);
+const { fetchCategories } = categoryStore;
 const categoryName = ref('')
 const imageFile = ref(null)
 const imagePreview = ref(null)
@@ -68,20 +83,37 @@ const handleImage = (event) => {
     }
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
     if (!categoryName.value || !imageFile.value) {
         alert('Please provide a name and image.')
         return
     }
 
-    // You can emit to parent to handle submission logic
-    emits('submit', {
-        name: categoryName.value,
-        image: imageFile.value,
-    })
+    const formData = new FormData()
+    formData.append('name', categoryName.value)
+    formData.append('image', imageFile.value)
 
-    resetForm()
-    emits('close')
+    try {
+        isSubmitting.value = true;
+        await axios.post('https://backend-5gsq.onrender.com/api/categories', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+        await categoryStore.fetchCategories()
+        emits('submit', {
+            name: categoryName.value,
+            image: imageFile.value
+        })
+
+    } catch (error) {
+        console.log('Error Adding Category', error)
+    } finally {
+        isSubmitting.value = false
+        resetForm()
+        emits('close')
+    }
 }
 
 const closeModal = () => {
